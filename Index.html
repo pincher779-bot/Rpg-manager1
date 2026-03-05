@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4CAF50">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Manager Mobile</title>
+    <style>
+    .logo-container{
+    text-align:center;
+    margin-top:20px;
+}
+
+.logo{
+    width:280px;
+    filter: drop-shadow(0 0 15px orange);
+    animation: flutuar 3s ease-in-out infinite;
+}
+
+@keyframes flutuar{
+    0%{ transform: translateY(0px); }
+    50%{ transform: translateY(-10px); }
+    100%{ transform: translateY(0px); }
+}
+        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 15px; margin: 0; }
+        .container { background: #2d2d2d; padding: 20px; border-radius: 12px; max-width: 500px; margin: 10px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; cursor: pointer; border: none; border-radius: 8px; background: #4CAF50; color: white; font-weight: bold; margin: 5px 0; transition: 0.3s; }
+        button:active { opacity: 0.7; }
+        #btnGoogle { background: #4285F4; margin-top: 15px; }
+        .equipItem { display: flex; justify-content: space-between; align-items: center; background: #444; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .equipItem button { width: auto; background: #ff4d4d; padding: 5px 10px; margin: 0; }
+        h3 { border-bottom: 1px solid #555; padding-bottom: 5px; margin-top: 20px; }
+        hr { border: 0; border-top: 1px solid #555; margin: 20px 0; }
+    </style>
+</head>
+<body>
+<div class="logo-container">
+  <img src="logo.png" alt="Anjos Caídos RPG" class="logo">
+</div>
+<div id="loginArea" class="container">
+    <h2 style="text-align:center;">RPG Manager</h2>
+    <input id="email" type="email" placeholder="Seu Email">
+    <input id="senha" type="password" placeholder="Sua Senha">
+    <button id="btnLogin">Entrar</button>
+    <button id="btnReg" style="background: #666;">Criar Conta</button>
+    <button id="btnGoogle">Entrar com Google</button>
+</div>
+
+<div id="appArea" style="display:none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+        <span>Logado como: <b id="userMail">...</b></span>
+        <button id="btnLogout" style="background: #ff4d4d; width: auto; padding: 5px 15px;">Sair</button>
+    </div>
+
+    <div class="container" id="areaFicha">
+        <h2>Nova Ficha</h2>
+        <input id="nome" placeholder="Nome do Personagem">
+        <input id="raca" placeholder="Raça">
+        <input id="ocupacao" placeholder="Ocupação">
+        
+        <h3>Atributos (46 pts)</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <input id="forca" type="number" placeholder="Força">
+            <input id="controle" type="number" placeholder="Controle">
+            <input id="resistencia" type="number" placeholder="Resistência">
+            <input id="racionalidade" type="number" placeholder="Racional">
+            <input id="sociais" type="number" placeholder="Sociais">
+            <input id="energia" type="number" placeholder="Energia">
+            <input id="vitalidade" type="number" placeholder="Vitalidade">
+            <input id="inteligencia" type="number" placeholder="Inteligência">
+            <input id="agilidade" type="number" placeholder="Agilidade">
+        </div>
+
+        <div style="background: #222; padding: 10px; border-radius: 8px; margin-top: 15px;">
+            <p>Sanidade: <span id="sanidade">0</span> | PV: <span id="pv">0</span> | PM: <span id="pm">0</span></p>
+            <p>Pontos Restantes: <b id="restantes">46</b></p>
+        </div>
+
+        <textarea id="mss" placeholder="Qualidades"></textarea>
+        <textarea id="msd" placeholder="Defeitos"></textarea>
+        <textarea id="msk" placeholder="Perícias"></textarea>
+
+        <h3>Equipamentos</h3>
+        <div style="display: flex; gap: 5px;">
+            <input id="equipInput" placeholder="Item">
+            <button id="btnAddEquip" style="width: auto;">+</button>
+        </div>
+        <div id="listaEquip"></div>
+
+        <hr>
+        <button id="btnSalvar">SALVAR FICHA</button>
+        <button id="btnVerFichas" style="background: #555;">MINHAS FICHAS</button>
+    </div>
+
+    <div class="container" id="listaFichas" style="display:none;">
+        <h2>Fichas Salvas</h2>
+        <div id="conteudoFichas"></div>
+        <button id="btnVoltar">VOLTAR</button>
+    </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  GoogleAuthProvider, 
+  signInWithRedirect, 
+  getRedirectResult 
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  deleteDoc, 
+  doc 
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCEct-_SNtEEaA5tlPI2AVl-ctyZ1ojrAQ",
+        authDomain: "rpg-manager-18335.firebaseapp.com",
+        projectId: "rpg-manager-18335",
+        storageBucket: "rpg-manager-18335.firebasestorage.app",
+        messagingSenderId: "109197680513",
+        appId: "1:109197680513:web:9986d16f53e6d560669280",
+        measurementId: "G-DG58481T0Y"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    const el = (id) => document.getElementById(id);
+    const getVal = (id) => parseInt(el(id).value) || 0;
+    let equipamentos = [];
+
+    // --- LOGIN ---
+ 
+    el("btnReg").onclick = async () => {
+        try { await createUserWithEmailAndPassword(auth, el("email").value, el("senha").value); } 
+        catch (e) { alert("Erro: " + e.message); }
+    };
+
+    el("btnLogin").onclick = async () => {
+        try { await signInWithEmailAndPassword(auth, el("email").value, el("senha").value); } 
+        catch (e) { alert("Erro: " + e.message); }
+    };
+
+    el("btnLogout").onclick = () => signOut(auth);
+
+    // Captura o resultado do redirect (importante para Mobile)
+    getRedirectResult(auth).catch((e) => console.error("Erro redirect:", e));
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            el("loginArea").style.display = "none";
+            el("appArea").style.display = "block";
+            el("userMail").innerText = user.email;
+            carregarFichas();
+        } else {
+            el("loginArea").style.display = "block";
+            el("appArea").style.display = "none";
+        }
+    });
+
+    // --- CÁLCULOS ---
+    const calcular = () => {
+        const soma = getVal("forca") + getVal("controle") + getVal("resistencia") + getVal("racionalidade") + 
+                   getVal("sociais") + getVal("energia") + getVal("vitalidade") + getVal("inteligencia") + getVal("agilidade");
+        
+        el("sanidade").innerText = (getVal("racionalidade") + getVal("controle")) * 2;
+        el("pv").innerText = Math.round(getVal("vitalidade") * 4.3);
+        el("pm").innerText = Math.round(getVal("energia") * 2.3);
+        
+        const res = 46 - soma;
+        el("restantes").innerText = res;
+        el("restantes").style.color = res < 0 ? "red" : "#7CFC00";
+    };
+
+    document.querySelectorAll('input[type="number"]').forEach(i => i.oninput = calcular);
+
+    // --- EQUIPAMENTOS ---
+    el("btnAddEquip").onclick = () => {
+        if(!el("equipInput").value) return;
+        equipamentos.push(el("equipInput").value);
+        el("equipInput").value = "";
+        renderEquip();
+    };
+
+    function renderEquip() {
+        el("listaEquip").innerHTML = equipamentos.map((item, i) => `
+            <div class="equipItem">
+                <span>${item}</span>
+                <button onclick="window.removerEquip(${i})">X</button>
+            </div>
+        `).join('');
+    }
+    window.removerEquip = (i) => { equipamentos.splice(i,1); renderEquip(); };
+
+    // --- FIRESTORE ---
+    el("btnSalvar").onclick = async () => {
+        const docFicha = {
+            uid: auth.currentUser.uid,
+            nome: el("nome").value,
+            raca: el("raca").value,
+            atributos: { forca: getVal("forca"), vitalidade: getVal("vitalidade") }, // Adicione os outros se quiser
+            equipamentos: [...equipamentos],
+            criadoEm: new Date()
+        };
+        await addDoc(collection(db, "fichas"), docFicha);
+        alert("Salvo!");
+        carregarFichas();
+    };
+
+    async function carregarFichas() {
+        const q = query(collection(db, "fichas"), where("uid", "==", auth.currentUser.uid));
+        const snap = await getDocs(q);
+        const lista = [];
+        snap.forEach(d => lista.push({id: d.id, ...d.data()}));
+        window.fichasSalvas = lista;
+    }
+
+    el("btnVerFichas").onclick = () => {
+        el("areaFicha").style.display = "none";
+        el("listaFichas").style.display = "block";
+        el("conteudoFichas").innerHTML = window.fichasSalvas.map(f => `
+            <div class="equipItem">
+                <b>${f.nome || 'Sem nome'}</b>
+                <button onclick="window.deletarFicha('${f.id}')">🗑️</button>
+            </div>
+        `).join('');
+    };
+
+    window.deletarFicha = async (id) => {
+        await deleteDoc(doc(db, "fichas", id));
+        await carregarFichas();
+        el("btnVerFichas").onclick();
+    };
+
+    el("btnVoltar").onclick = () => {
+        el("listaFichas").style.display = "none";
+        el("areaFicha").style.display = "block";
+    };
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>

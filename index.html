@@ -102,7 +102,8 @@
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 
 import { 
   getAuth, 
@@ -120,141 +121,311 @@ import {
   collection, 
   addDoc, 
   getDocs, 
-  query, 
-  where, 
   deleteDoc, 
-  doc 
+  doc,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyCEct-_SNtEEaA5tlPI2AVl-ctyZ1ojrAQ",
-        authDomain: "rpg-manager-18335.firebaseapp.com",
-        projectId: "rpg-manager-18335",
-        storageBucket: "rpg-manager-18335.firebasestorage.app",
-        messagingSenderId: "109197680513",
-        appId: "1:109197680513:web:9986d16f53e6d560669280",
-        measurementId: "G-DG58481T0Y"
-    };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+const firebaseConfig = {
+apiKey: "AIzaSyCEct-_SNtEEaA5tlPI2AVl-ctyZ1ojrAQ",
+authDomain: "rpg-manager-18335.firebaseapp.com",
+projectId: "rpg-manager-18335",
+storageBucket: "rpg-manager-18335.firebasestorage.app",
+messagingSenderId: "109197680513",
+appId: "1:109197680513:web:9986d16f53e6d560669280"
+};
 
-    const el = (id) => document.getElementById(id);
-    const getVal = (id) => parseInt(el(id).value) || 0;
-    let equipamentos = [];
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
-    // --- LOGIN ---
- 
-    el("btnReg").onclick = async () => {
-        try { await createUserWithEmailAndPassword(auth, el("email").value, el("senha").value); } 
-        catch (e) { alert("Erro: " + e.message); }
-    };
+const ADMIN_EMAIL = "luan80312922@gmail.com";
 
-    el("btnLogin").onclick = async () => {
-        try { await signInWithEmailAndPassword(auth, el("email").value, el("senha").value); } 
-        catch (e) { alert("Erro: " + e.message); }
-    };
-
-    el("btnLogout").onclick = () => signOut(auth);
-
-    // Captura o resultado do redirect (importante para Mobile)
-    getRedirectResult(auth).catch((e) => console.error("Erro redirect:", e));
-
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            el("loginArea").style.display = "none";
-            el("appArea").style.display = "block";
-            el("userMail").innerText = user.email;
-            carregarFichas();
-        } else {
-            el("loginArea").style.display = "block";
-            el("appArea").style.display = "none";
-        }
-    });
-
-    // --- CÁLCULOS ---
-    const calcular = () => {
-        const soma = getVal("forca") + getVal("controle") + getVal("resistencia") + getVal("racionalidade") + 
-                   getVal("sociais") + getVal("energia") + getVal("vitalidade") + getVal("inteligencia") + getVal("agilidade");
-        
-        el("sanidade").innerText = (getVal("racionalidade") + getVal("controle")) * 2;
-        el("pv").innerText = Math.round(getVal("vitalidade") * 4.3);
-        el("pm").innerText = Math.round(getVal("energia") * 2.3);
-        
-        const res = 46 - soma;
-        el("restantes").innerText = res;
-        el("restantes").style.color = res < 0 ? "red" : "#7CFC00";
-    };
-
-    document.querySelectorAll('input[type="number"]').forEach(i => i.oninput = calcular);
-
-    // --- EQUIPAMENTOS ---
-    el("btnAddEquip").onclick = () => {
-        if(!el("equipInput").value) return;
-        equipamentos.push(el("equipInput").value);
-        el("equipInput").value = "";
-        renderEquip();
-    };
-
-    function renderEquip() {
-        el("listaEquip").innerHTML = equipamentos.map((item, i) => `
-            <div class="equipItem">
-                <span>${item}</span>
-                <button onclick="window.removerEquip(${i})">X</button>
-            </div>
-        `).join('');
-    }
-    window.removerEquip = (i) => { equipamentos.splice(i,1); renderEquip(); };
-
-    // --- FIRESTORE ---
-    el("btnSalvar").onclick = async () => {
-        const docFicha = {
-            uid: auth.currentUser.uid,
-            nome: el("nome").value,
-            raca: el("raca").value,
-            atributos: { forca: getVal("forca"), vitalidade: getVal("vitalidade") }, // Adicione os outros se quiser
-            equipamentos: [...equipamentos],
-            criadoEm: new Date()
-        };
-        await addDoc(collection(db, "fichas"), docFicha);
-        alert("Salvo!");
-        carregarFichas();
-    };
-
-    async function carregarFichas() {
-        const q = query(collection(db, "fichas"), where("uid", "==", auth.currentUser.uid));
-        const snap = await getDocs(q);
-        const lista = [];
-        snap.forEach(d => lista.push({id: d.id, ...d.data()}));
-        window.fichasSalvas = lista;
-    }
-
-    el("btnVerFichas").onclick = () => {
-        el("areaFicha").style.display = "none";
-        el("listaFichas").style.display = "block";
-        el("conteudoFichas").innerHTML = window.fichasSalvas.map(f => `
-            <div class="equipItem">
-                <b>${f.nome || 'Sem nome'}</b>
-                <button onclick="window.deletarFicha('${f.id}')">🗑️</button>
-            </div>
-        `).join('');
-    };
-
-    window.deletarFicha = async (id) => {
-        await deleteDoc(doc(db, "fichas", id));
-        await carregarFichas();
-        el("btnVerFichas").onclick();
-    };
-
-    el("btnVoltar").onclick = () => {
-        el("listaFichas").style.display = "none";
-        el("areaFicha").style.display = "block";
-    };
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("sw.js");
+function isAdmin(user){
+return user && user.email === ADMIN_EMAIL;
 }
+
+const el = (id)=>document.getElementById(id);
+const getVal = (id)=>parseInt(el(id).value)||0;
+
+let equipamentos = [];
+let fichaEditando = null;
+
+
+
+// LOGIN
+
+el("btnReg").onclick = async ()=>{
+try{
+await createUserWithEmailAndPassword(auth,el("email").value,el("senha").value);
+}catch(e){alert(e.message)}
+};
+
+el("btnLogin").onclick = async ()=>{
+try{
+await signInWithEmailAndPassword(auth,el("email").value,el("senha").value);
+}catch(e){alert(e.message)}
+};
+
+el("btnLogout").onclick = ()=>signOut(auth);
+
+getRedirectResult(auth).catch(()=>{});
+
+onAuthStateChanged(auth,(user)=>{
+
+if(user){
+
+el("loginArea").style.display="none";
+el("appArea").style.display="block";
+el("userMail").innerText=user.email;
+
+carregarFichas();
+
+}else{
+
+el("loginArea").style.display="block";
+el("appArea").style.display="none";
+
+}
+
+});
+
+
+
+// CALCULOS
+
+const calcular=()=>{
+
+const soma=
+getVal("forca")+
+getVal("controle")+
+getVal("resistencia")+
+getVal("racionalidade")+
+getVal("sociais")+
+getVal("energia")+
+getVal("vitalidade")+
+getVal("inteligencia")+
+getVal("agilidade");
+
+el("sanidade").innerText=(getVal("racionalidade")+getVal("controle"))*2;
+el("pv").innerText=Math.round(getVal("vitalidade")*4.3);
+el("pm").innerText=Math.round(getVal("energia")*2.3);
+
+const res=46-soma;
+
+el("restantes").innerText=res;
+el("restantes").style.color=res<0?"red":"#7CFC00";
+
+};
+
+document.querySelectorAll('input[type="number"]').forEach(i=>i.oninput=calcular);
+
+
+
+// EQUIPAMENTOS
+
+el("btnAddEquip").onclick=()=>{
+
+if(!el("equipInput").value)return;
+
+equipamentos.push(el("equipInput").value);
+
+el("equipInput").value="";
+
+renderEquip();
+
+};
+
+function renderEquip(){
+
+el("listaEquip").innerHTML=equipamentos.map((item,i)=>`
+
+<div class="equipItem">
+
+<span>${item}</span>
+
+<button onclick="window.removerEquip(${i})">X</button>
+
+</div>
+
+`).join('');
+
+}
+
+window.removerEquip=(i)=>{
+equipamentos.splice(i,1);
+renderEquip();
+};
+
+
+
+// SALVAR
+
+el("btnSalvar").onclick = async ()=>{
+
+const dados={
+
+nome:el("nome").value,
+raca:el("raca").value,
+
+criador:auth.currentUser.email,
+
+atributos:{
+forca:getVal("forca"),
+vitalidade:getVal("vitalidade")
+},
+
+equipamentos:[...equipamentos]
+
+};
+
+if(fichaEditando){
+
+await updateDoc(doc(db,"fichas",fichaEditando),dados);
+
+alert("Ficha atualizada");
+
+fichaEditando=null;
+
+}else{
+
+dados.uid=auth.currentUser.uid;
+dados.criadoEm=new Date();
+
+await addDoc(collection(db,"fichas"),dados);
+
+alert("Ficha salva");
+
+}
+
+carregarFichas();
+
+};
+
+
+
+// CARREGAR FICHAS
+
+async function carregarFichas(){
+
+const snap=await getDocs(collection(db,"fichas"));
+
+const lista=[];
+
+snap.forEach(d=>lista.push({id:d.id,...d.data()}));
+
+window.fichasSalvas=lista;
+
+}
+
+
+
+// LISTAR
+
+el("btnVerFichas").onclick=()=>{
+
+el("areaFicha").style.display="none";
+el("listaFichas").style.display="block";
+
+el("conteudoFichas").innerHTML=window.fichasSalvas.map(f=>{
+
+const podeEditar =
+f.criador===auth.currentUser.email || isAdmin(auth.currentUser);
+
+return `
+
+<div class="equipItem">
+
+<div>
+
+<b>${f.nome||"Sem nome"}</b>
+<br>
+<small>Criado por: ${f.criador||"?"}</small>
+
+</div>
+
+<div>
+
+${podeEditar?`<button onclick="window.editarFicha('${f.id}')">✏️</button>`:""}
+
+${podeEditar?`<button onclick="window.deletarFicha('${f.id}')">🗑️</button>`:""}
+
+</div>
+
+</div>
+
+`;
+
+}).join('');
+
+};
+
+
+
+// EDITAR
+
+window.editarFicha=(id)=>{
+
+const ficha=window.fichasSalvas.find(f=>f.id===id);
+
+fichaEditando=id;
+
+el("nome").value=ficha.nome||"";
+el("raca").value=ficha.raca||"";
+
+if(ficha.atributos){
+
+el("forca").value=ficha.atributos.forca||0;
+el("vitalidade").value=ficha.atributos.vitalidade||0;
+
+}
+
+equipamentos=ficha.equipamentos||[];
+
+renderEquip();
+
+calcular();
+
+el("listaFichas").style.display="none";
+el("areaFicha").style.display="block";
+
+};
+
+
+
+// DELETAR
+
+window.deletarFicha=async(id)=>{
+
+await deleteDoc(doc(db,"fichas",id));
+
+await carregarFichas();
+
+el("btnVerFichas").onclick();
+
+};
+
+
+
+// VOLTAR
+
+el("btnVoltar").onclick=()=>{
+
+el("listaFichas").style.display="none";
+el("areaFicha").style.display="block";
+
+};
+
+
+
+// PWA
+
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("sw.js");
+}
+
 </script>
 </body>
 </html>
